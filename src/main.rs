@@ -68,8 +68,7 @@ fn run_test(config: &config::Config, log_handle: log4rs::Handle) -> Result<()> {
     // Print the error to log before compressing
     if let Err(e) = &status {
         log::error!("Test failed: {e:?}");
-    }
-    else {
+    } else {
         log::info!("Test succeeded");
     }
 
@@ -240,6 +239,9 @@ fn run_workloads(
 
     if config.cpufreq {
         set_governor().context("failed to set cpu frequency governor")?;
+        // TODO: Make these configurable
+        //disable_boost_amd().context("failed to disable amd boost")?;
+        //disable_turbo_intel().context("failed to disable intel turbo")?;
     }
 
     let total_configs = config.samples as u64 * configs.len() as u64;
@@ -561,10 +563,20 @@ fn set_governor() -> Result<()> {
         .context("Failed to set cpu frequency governor")
 }
 
-// fn disable_turbo_intel() -> Result<()> {
-//     log::info!("Disabling intel turbo");
-//     PathBuf::from("/sys/devices/system/cpu/intel_pstate/no_turbo")
-//         .pipe(|p| File::options().write(true).open(p))?
-//         .write_all("1\n".as_bytes())
-//         .context("Failed to disable turbo boost")
-// }
+#[expect(dead_code)]
+fn disable_boost_amd() -> Result<()> {
+    log::info!("Disabling amd boost");
+    for entry in glob::glob("/sys/devices/system/cpu/cpu*/cpufreq/boost")? {
+        std::fs::write(&entry?, "0\n")?
+    }
+    Ok(())
+}
+
+#[expect(dead_code)]
+fn disable_turbo_intel() -> Result<()> {
+    log::info!("Disabling intel turbo");
+    PathBuf::from("/sys/devices/system/cpu/intel_pstate/no_turbo")
+        .pipe(|p| File::options().write(true).open(p))?
+        .write_all("1\n".as_bytes())
+        .context("Failed to disable turbo boost")
+}
