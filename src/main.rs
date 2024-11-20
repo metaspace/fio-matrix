@@ -401,8 +401,32 @@ fn run_single_workload(
 
     log::info!("Running workload command");
 
-    let mut run = || command.spawn()?.wait()?.check_status();
-    run().context("Fio workload failed")
+    if let Some(target) = &config.remote {
+        let client = reqwest::blocking::Client::new();
+        let ping = || -> Result<()> {
+            client
+                .put(target.join("ping")?)
+                .send()?
+                .error_for_status()
+                .map(|_ok| ())
+                .context("Ping failed")
+        };
+
+        let mut child = command.spawn()?;
+        loop {
+            ping()?;
+            std::thread::sleep(std::time::Duration::from_secs(60));
+            if let Some(ret) = child.try_wait()? {
+                return ret.check_status().context("Fio workload failed");
+            }
+        }
+    } else {
+        return command
+            .spawn()?
+            .wait()?
+            .check_status()
+            .context("Fio workload failed");
+    }
 }
 
 fn setup(config: &config::Config) -> Result<()> {
