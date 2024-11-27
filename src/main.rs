@@ -594,9 +594,7 @@ fn set_governor() -> Result<()> {
 
 fn disable_boost_amd() -> Result<()> {
     log::info!("Disabling amd boost");
-    for entry in glob::glob("/sys/devices/system/cpu/cpu*/cpufreq/boost")? {
-        std::fs::write(&entry?, "0\n")?
-    }
+    std::fs::write("/sys/devices/system/cpu/cpufreq/boost", "0\n")?;
     Ok(())
 }
 
