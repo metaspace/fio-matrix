@@ -237,8 +237,13 @@ fn run_workloads(
         load_module(config).context("Load module once")?;
     }
 
-    if config.cpufreq {
+    if config.amd_pstate_fixed_3ghz {
+        amd_pstate_fixed_3ghz().context("failed to configure amd-pstate")?;
+    }
+
+    if config.cpufreq_governor_performance {
         set_governor().context("failed to set cpu frequency governor")?;
+
     }
 
     if config.disable_boost_amd {
@@ -590,6 +595,16 @@ fn set_governor() -> Result<()> {
         .wait()?
         .check_status()
         .context("Failed to set cpu frequency governor")
+}
+
+fn amd_pstate_fixed_3ghz() -> Result<()> {
+    std::fs::write("/sys/devices/system/cpu/amd_pstate/status", "guided")?;
+    set_governor()?;
+    disable_boost_amd()?;
+    for entry in glob::glob("/sys/devices/system/cpu/cpufreq/policy*/scaling_max_freq")? {
+        std::fs::write(&entry?, "3000000\n")?
+    }
+    Ok(())
 }
 
 fn disable_boost_amd() -> Result<()> {

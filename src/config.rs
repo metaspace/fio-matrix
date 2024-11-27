@@ -99,8 +99,20 @@ pub(crate) struct CliConfig {
 
     #[arg(long)]
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) cpufreq: Option<bool>,
+    pub(crate) cpufreq_governor_performance: Option<bool>,
 
+    #[arg(long)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) disable_boost_amd: Option<bool>,
+
+    #[arg(long)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) disable_boost_intel: Option<bool>,
+
+    #[arg(long)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+
+    pub(crate) amd_pstate_fixed_3ghz: Option<bool>,
     #[arg(long)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) tag: Option<String>,
@@ -112,14 +124,6 @@ pub(crate) struct CliConfig {
     #[arg(long)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) remote: Option<Url>,
-
-    #[arg(long)]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) disable_boost_amd: Option<bool>,
-
-    #[arg(long)]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) disable_boost_intel: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, ValueEnum, Copy, Clone, Debug)]
@@ -149,6 +153,12 @@ pub(crate) struct Config {
     pub(crate) disable_boost_intel: bool,
 
     #[serde(default)]
+    pub(crate) amd_pstate_fixed_3ghz: bool,
+
+    #[serde(default)]
+    pub(crate) cpufreq_governor_performance: bool,
+
+    #[serde(default)]
     pub(crate) hipri: bool,
 
     #[serde(default)]
@@ -171,9 +181,6 @@ pub(crate) struct Config {
     #[serde(default)]
     pub(crate) verify: bool,
     pub(crate) capture: bool,
-
-    #[serde(default)]
-    pub(crate) cpufreq: bool,
 
     #[serde(default)]
     pub(crate) tag: Option<String>,
@@ -267,7 +274,7 @@ impl Default for Config {
             compress: Default::default(),
             verify: Default::default(),
             capture: Default::default(),
-            cpufreq: Default::default(),
+            cpufreq_governor_performance: Default::default(),
             tag: None,
             configure_c_nullblk: false,
             output_path: None,
@@ -275,6 +282,7 @@ impl Default for Config {
             hipri: false,
             disable_boost_amd: false,
             disable_boost_intel: false,
+            amd_pstate_fixed_3ghz: false,
         }
     }
 }
