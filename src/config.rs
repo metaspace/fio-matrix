@@ -120,6 +120,10 @@ pub(crate) struct CliConfig {
     #[arg(long)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) disable_boost_intel: Option<bool>,
+
+    #[arg(long)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) amd_pstate_fix: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, ValueEnum, Copy, Clone, Debug)]
@@ -147,6 +151,9 @@ pub(crate) struct Config {
 
     #[serde(default)]
     pub(crate) disable_boost_intel: bool,
+
+    #[serde(default)]
+    pub(crate) amd_pstate_fix: bool,
 
     #[serde(default)]
     pub(crate) hipri: bool,
@@ -275,6 +282,7 @@ impl Default for Config {
             hipri: false,
             disable_boost_amd: false,
             disable_boost_intel: false,
+            amd_pstate_fix: false,
         }
     }
 }
