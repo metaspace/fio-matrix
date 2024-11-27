@@ -112,6 +112,14 @@ pub(crate) struct CliConfig {
     #[arg(long)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) remote: Option<Url>,
+
+    #[arg(long)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) disable_boost_amd: Option<bool>,
+
+    #[arg(long)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) disable_boost_intel: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, ValueEnum, Copy, Clone, Debug)]
@@ -133,6 +141,12 @@ pub(crate) struct Config {
     pub(crate) prep: bool,
     pub(crate) fio: PathBuf,
     pub(crate) configure_c_nullblk: bool,
+
+    #[serde(default)]
+    pub(crate) disable_boost_amd: bool,
+
+    #[serde(default)]
+    pub(crate) disable_boost_intel: bool,
 
     #[serde(default)]
     pub(crate) hipri: bool,
@@ -259,6 +273,8 @@ impl Default for Config {
             output_path: None,
             remote: None,
             hipri: false,
+            disable_boost_amd: false,
+            disable_boost_intel: false,
         }
     }
 }
