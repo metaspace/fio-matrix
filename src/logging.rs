@@ -50,12 +50,9 @@ pub(crate) fn setup_log(
     let mut log_config_builder = Config::builder();
     let mut root_builder = Root::builder();
 
-    match output_dir {
-        Some(output_dir) => {
-            log_config_builder = configure_file_log(log_config_builder, output_dir)?;
-            root_builder = root_builder.appender("logfile");
-        }
-        None => (),
+    if let Some(output_dir) = output_dir {
+        log_config_builder = configure_file_log(log_config_builder, output_dir)?;
+        root_builder = root_builder.appender("logfile");
     }
 
     if !std::io::stdout().is_terminal() && stdout_log {

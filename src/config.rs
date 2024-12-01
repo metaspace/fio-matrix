@@ -198,10 +198,8 @@ impl Config {
             return Err(anyhow!("Cannot set insmod and probe at the same time"));
         }
 
-        if self.module.is_some() {
-            if !(self.insmod || self.modprobe) {
-                return Err(anyhow!("Missing insmod or modprobe option"));
-            }
+        if self.module.is_some() && !(self.insmod || self.modprobe) {
+            return Err(anyhow!("Missing insmod or modprobe option"));
         }
 
         if self.compress && !self.capture {
@@ -231,7 +229,7 @@ impl Config {
                 true => Ok(path),
                 false => Err(anyhow!("Could not find config file")),
             })
-            .map(|res| res.map(|path| Toml::file(path)))
+            .map(|res| res.map(Toml::file))
         {
             fig = fig.merge(file_config?);
         }

@@ -43,7 +43,7 @@ fn main() -> Result<()> {
 
 fn run_test(config: &config::Config, log_handle: log4rs::Handle) -> Result<()> {
     let output_dir = match config.capture {
-        true => Some(get_batch_dir(&config)?),
+        true => Some(get_batch_dir(config)?),
         false => None,
     };
 
@@ -63,7 +63,7 @@ fn run_test(config: &config::Config, log_handle: log4rs::Handle) -> Result<()> {
     };
 
     print_uname()?;
-    let status = run_workloads(output_dir.as_deref(), &config, &push_log);
+    let status = run_workloads(output_dir.as_deref(), config, &push_log);
 
     // Print the error to log before compressing
     if let Err(e) = &status {
@@ -223,15 +223,15 @@ fn run_workloads(
         .block_sizes
         .clone()
         .into_iter()
-        .cartesian_product(config.jobcounts.clone().into_iter())
-        .cartesian_product(config.workloads.clone().into_iter())
-        .cartesian_product(config.queue_depths.clone().into_iter())
+        .cartesian_product(config.jobcounts.clone())
+        .cartesian_product(config.workloads.clone())
+        .cartesian_product(config.queue_depths.clone())
         .collect::<Vec<_>>();
 
     if config.device == "nullb0" {
         let _ = teardown_cnull();
     }
-    let _ = unload_module(&config);
+    let _ = unload_module(config);
 
     if let config::ModuleReloadPolicy::Once = config.module_reload_policy {
         load_module(config).context("Load module once")?;
@@ -266,7 +266,7 @@ fn run_workloads(
         log::info!("Starting sample #{i}");
         bar.println(format!("[+] Starting sample #{i}"));
         let run_dir = output_dir
-            .map(|output_dir| get_run_dir(output_dir))
+            .map(get_run_dir)
             .transpose()
             .context("Failed to get run dir")?;
         for (((block_size, jobcount), workload), queue_depth) in configs.clone() {
@@ -276,17 +276,17 @@ fn run_workloads(
             bar.println(format!(
                 "[+] Starting test qd:{queue_depth} bs:{block_size} jobs:{jobcount} wl:{workload}"
             ));
-            setup(&config).context("Failed to set up module")?;
+            setup(config).context("Failed to set up module")?;
             run_single_workload(
-                &config,
-                run_dir.as_ref().map(|v| v.as_path()),
+                config,
+                run_dir.as_deref(),
                 queue_depth,
                 &block_size,
                 jobcount,
                 &workload,
             )
             .context("Failed to run test")?;
-            teardown(&config).context("Failed to tear down module")?;
+            teardown(config).context("Failed to tear down module")?;
             bar.inc(1);
             push_log()?;
         }
@@ -313,12 +313,11 @@ fn run_single_workload(
     log::info!("Setting up workload: {run_output_id}");
 
     let run_file_path = |name: &str| -> Option<PathBuf> {
-        let path = output_dir_path.map(|v| {
+        output_dir_path.map(|v| {
             let mut p = PathBuf::from(v);
             p.push(format!("{run_output_id}{name}"));
             p
-        });
-        path
+        })
     };
 
     if config.prep {
@@ -377,8 +376,8 @@ fn run_single_workload(
     }
 
     if config.verify {
-        args.push(format!("--do_verify=1"));
-        args.push(format!("--verify=md5"));
+        args.push("--do_verify=1".to_string());
+        args.push("--verify=md5".to_string());
     } else {
         args.push(String::from("--norandommap"));
         args.push(String::from("--random_generator=lfsr"));
@@ -431,11 +430,11 @@ fn run_single_workload(
             }
         }
     } else {
-        return command
+        command
             .spawn()?
             .wait()?
             .check_status()
-            .context("Fio workload failed");
+            .context("Fio workload failed")
     }
 }
 
@@ -467,51 +466,45 @@ fn teardown(config: &config::Config) -> Result<()> {
 }
 
 fn load_module(config: &config::Config) -> Result<()> {
-    match &config.module {
-        Some(module) => {
-            log::info!("Inserting module: {}", module);
-            if config.insmod {
-                Command::new("insmod")
-                    .arg(module)
-                    .args(&config.module_args)
-                    .spawn()?
-                    .wait()?
-                    .check_status()?;
-            }
-
-            if config.modprobe {
-                Command::new("modprobe")
-                    .arg(module)
-                    .args(&config.module_args)
-                    .spawn()?
-                    .wait()?
-                    .check_status()?;
-            }
+    if let Some(module) = &config.module {
+        log::info!("Inserting module: {}", module);
+        if config.insmod {
+            Command::new("insmod")
+                .arg(module)
+                .args(&config.module_args)
+                .spawn()?
+                .wait()?
+                .check_status()?;
         }
-        None => (),
+
+        if config.modprobe {
+            Command::new("modprobe")
+                .arg(module)
+                .args(&config.module_args)
+                .spawn()?
+                .wait()?
+                .check_status()?;
+        }
     }
 
     Ok(())
 }
 
 fn unload_module(config: &config::Config) -> Result<()> {
-    match &config.module {
-        Some(module) => {
-            log::info!("Unloading module: {}", module);
-            if config.insmod {
-                Command::new("rmmod")
-                    .arg(module)
-                    .spawn_retry(3, std::time::Duration::from_secs(1))?;
-            }
-
-            if config.modprobe {
-                Command::new("modprobe")
-                    .arg("-r")
-                    .arg(module)
-                    .spawn_retry(3, std::time::Duration::from_secs(1))?;
-            }
+    if let Some(module) = &config.module {
+        log::info!("Unloading module: {}", module);
+        if config.insmod {
+            Command::new("rmmod")
+                .arg(module)
+                .spawn_retry(3, std::time::Duration::from_secs(1))?;
         }
-        None => (),
+
+        if config.modprobe {
+            Command::new("modprobe")
+                .arg("-r")
+                .arg(module)
+                .spawn_retry(3, std::time::Duration::from_secs(1))?;
+        }
     }
 
     Ok(())
