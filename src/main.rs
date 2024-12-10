@@ -6,6 +6,7 @@
 use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Result;
+use byte_unit::rust_decimal::Decimal;
 use indicatif::ProgressBar;
 use logging::MemoryAppender;
 use std::io::IsTerminal;
@@ -243,7 +244,6 @@ fn run_workloads(
 
     if config.cpufreq_governor_performance {
         set_governor().context("failed to set cpu frequency governor")?;
-
     }
 
     if config.disable_boost_amd {
@@ -252,6 +252,10 @@ fn run_workloads(
 
     if config.disable_boost_intel {
         disable_turbo_intel().context("failed to disable intel turbo")?;
+    }
+
+    if config.use_hugepages {
+        set_nr_hugepages(calculate_nr_hugepages(config)?)?;
     }
 
     let total_configs = config.samples as u64 * configs.len() as u64;
@@ -396,6 +400,11 @@ fn run_single_workload(
 
     if config.hipri {
         args.push(String::from("--hipri=1"));
+    }
+
+    if config.use_hugepages {
+        args.push(String::from("--iomem=mmaphuge"));
+        args.push(String::from("--hugepage-size=2m"));
     }
 
     let mut command = Command::new(&config.fio);
@@ -616,4 +625,54 @@ fn disable_turbo_intel() -> Result<()> {
         .pipe(|p| File::options().write(true).open(p))?
         .write_all("1\n".as_bytes())
         .context("Failed to disable turbo boost")
+}
+
+fn set_nr_hugepages(nr: u64) -> Result<()> {
+    log::info!("Setting number of hugepages to {}", nr);
+    PathBuf::from("/proc/sys/vm/nr_hugepages")
+        .pipe(|p| File::options().write(true).open(p))?
+        .write_all(format!("{nr}\n").as_bytes())
+        .context("Failed to set number of hugepages")?;
+
+    let data = std::fs::read("/proc/sys/vm/nr_hugepages")?;
+    let val = std::str::from_utf8(&data)?.trim();
+    if val != &format!("{nr}") {
+        Err(anyhow!("Failed to set number of huge pages"))
+    } else {
+        Ok(())
+    }
+}
+
+fn calculate_nr_hugepages(config: &config::Config) -> Result<u64> {
+    let jobcount = config
+        .jobcounts
+        .iter()
+        .max()
+        .ok_or(anyhow!("jobcounts empty"))?
+        .clone();
+    let block_size = byte_unit::Byte::parse_str(
+        config
+            .block_sizes
+            .iter()
+            .max()
+            .ok_or(anyhow!("block_sizes empty"))?,
+        true,
+    )?
+    .as_u64();
+    let queue_depth = config
+        .queue_depths
+        .iter()
+        .max()
+        .ok_or(anyhow!("queue_depths empty"))?
+        .clone();
+
+    let max_size = jobcount as u64 * block_size * queue_depth as u64;
+    let page_size =
+        byte_unit::Byte::from_decimal_with_unit(Decimal::from(2048u32), byte_unit::Unit::KiB)
+            .ok_or(anyhow!("failed to parse bytes"))?
+            .as_u64();
+
+    let num_pages = max_size.div_ceil(page_size) + 2 * jobcount as u64; // fio wants two extra pages per job
+
+    Ok(num_pages)
 }

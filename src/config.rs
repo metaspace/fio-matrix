@@ -124,6 +124,10 @@ pub(crate) struct CliConfig {
     #[arg(long)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) remote: Option<Url>,
+
+    #[arg(long)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) use_hugepages: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, ValueEnum, Copy, Clone, Debug)]
@@ -190,6 +194,9 @@ pub(crate) struct Config {
 
     #[serde(default)]
     pub(crate) remote: Option<Url>,
+
+    #[serde(default)]
+    pub(crate) use_hugepages: bool,
 }
 
 impl Config {
@@ -281,6 +288,7 @@ impl Default for Config {
             disable_boost_amd: false,
             disable_boost_intel: false,
             amd_pstate_fixed_3ghz: false,
+            use_hugepages: false,
         }
     }
 }
