@@ -422,9 +422,13 @@ fn run_single_workload(
         };
 
         let mut child = command.spawn()?;
+        let mut last_ping = std::time::Instant::now();
         loop {
-            ping()?;
-            std::thread::sleep(std::time::Duration::from_secs(60));
+            if std::time::Instant::now() - last_ping > std::time::Duration::from_secs(60) {
+                ping()?;
+                last_ping = std::time::Instant::now();
+            }
+            std::thread::sleep(std::time::Duration::from_secs(1));
             if let Some(ret) = child.try_wait()? {
                 return ret.check_status().context("Fio workload failed");
             }
