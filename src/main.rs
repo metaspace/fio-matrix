@@ -6,7 +6,6 @@
 use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Result;
-use byte_unit::rust_decimal::Decimal;
 use indicatif::ProgressBar;
 use logging::MemoryAppender;
 use std::io::IsTerminal;
@@ -650,30 +649,87 @@ fn calculate_nr_hugepages(config: &config::Config) -> Result<u64> {
         .iter()
         .max()
         .ok_or(anyhow!("jobcounts empty"))?
-        .clone();
-    let block_size = byte_unit::Byte::parse_str(
-        config
-            .block_sizes
-            .iter()
-            .max()
-            .ok_or(anyhow!("block_sizes empty"))?,
-        true,
-    )?
-    .as_u64();
+        .clone()
+        .try_into()?;
+
+    let block_size: Result<Vec<byte_unit::Byte>, _> = config
+        .block_sizes
+        .iter()
+        .map(|s| byte_unit::Byte::parse_str(s, true))
+        .collect();
+
+    let block_size: u64 = block_size?
+        .into_iter()
+        .map(|b| b.as_u64())
+        .max()
+        .ok_or(anyhow!("block_sizes empty"))?;
+
     let queue_depth = config
         .queue_depths
         .iter()
         .max()
         .ok_or(anyhow!("queue_depths empty"))?
-        .clone();
+        .clone()
+        .try_into()?;
 
-    let max_size = jobcount as u64 * block_size * queue_depth as u64;
-    let page_size =
-        byte_unit::Byte::from_decimal_with_unit(Decimal::from(2048u32), byte_unit::Unit::KiB)
-            .ok_or(anyhow!("failed to parse bytes"))?
-            .as_u64();
+    calculate_nr_hugepages_int(queue_depth, block_size, jobcount)
+}
 
-    let num_pages = max_size.div_ceil(page_size) + 2 * jobcount as u64; // fio wants two extra pages per job
+fn calculate_nr_hugepages_int(queue_depth: u64, block_size: u64, jobcount: u64) -> Result<u64> {
+    // fio algorithm for calculating required memory is a bit strange, looks
+    // like it is repeating rounding unnecessarily.
+
+    let page_size = 2u64.pow(10) * 4;
+    let huge_page_size = 2u64.pow(20) * 2;
+    let page_mask = page_size - 1;
+    let huge_page_mask = huge_page_size - 1;
+
+    let mut per_job_mem = block_size * queue_depth;
+    per_job_mem += page_mask;
+    per_job_mem = (per_job_mem + huge_page_mask) & !huge_page_mask;
+    per_job_mem += page_mask;
+    per_job_mem = (per_job_mem + huge_page_mask) & !huge_page_mask;
+
+    let required_mem = jobcount * per_job_mem;
+
+    let num_pages = required_mem.div_ceil(huge_page_size);
 
     Ok(num_pages)
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn test_calculate_nr_hugepages_int() -> Result<()> {
+        assert_eq!(calculate_nr_hugepages_int(128, 32 * 2u64.pow(10), 6)?, 24);
+        assert_eq!(calculate_nr_hugepages_int(8, 32 * 2u64.pow(10), 1)?, 2);
+        assert_eq!(calculate_nr_hugepages_int(8, 4 * 2u64.pow(10), 1)?, 2);
+        assert_eq!(calculate_nr_hugepages_int(128, 16 * 2u64.pow(20), 1)?, 1026);
+        assert_eq!(
+            calculate_nr_hugepages_int(128, 16 * 2u64.pow(20), 6)?,
+            1026 * 6
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn tets_calculate_nr_hugepages() -> Result<()> {
+        let mut config = config::Config::default();
+        config.block_sizes = vec!["16 MiB".into()];
+        config.queue_depths = vec![128];
+        config.jobcounts = vec![6];
+        assert_eq!(calculate_nr_hugepages(&config)?, 6 * 1026);
+
+        config.block_sizes = vec!["512".into(), "16MiB".into()];
+        config.queue_depths = vec![1, 128];
+        config.jobcounts = vec![1];
+        assert_eq!(calculate_nr_hugepages(&config)?, 1026);
+
+        config.block_sizes = vec!["512".into(), "16MiB".into()];
+        config.queue_depths = vec![1, 128];
+        config.jobcounts = vec![1, 6];
+        assert_eq!(calculate_nr_hugepages(&config)?, 6 * 1026);
+        Ok(())
+    }
 }
