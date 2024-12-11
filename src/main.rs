@@ -347,6 +347,7 @@ fn run_single_workload(
         let mut prep = || -> Result<()> { command.spawn()?.wait()?.check_status() };
         prep().context("Prep work failed")?;
     }
+    let block_size_bytes = byte_unit::Byte::parse_str(block_size, false)?.as_u64();
 
     let output_path = run_file_path(".json");
     let stdout_path = run_file_path(".stdout");
@@ -361,7 +362,7 @@ fn run_single_workload(
         String::from("--gtod_reduce=1"),
         String::from("--clocksource=cpu"),
         format!("--readwrite={}", workload),
-        format!("--blocksize={}", block_size),
+        format!("--blocksize={}", block_size_bytes),
         String::from("--direct=1"),
         String::from("--cpus_allowed_policy=split"),
         format!("--cpus_allowed=0-{}", jobcount - 1),
