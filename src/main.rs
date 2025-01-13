@@ -231,10 +231,12 @@ fn run_workloads(
     if config.device == "nullb0" {
         let _ = teardown_cnull();
     }
-    let _ = unload_module(config);
 
     if let config::ModuleReloadPolicy::Once = config.module_reload_policy {
         load_module(config).context("Load module once")?;
+    }
+    else {
+        let _ = unload_module(config);
     }
 
     if config.amd_pstate_fixed_3ghz {
