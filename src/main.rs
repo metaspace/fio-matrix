@@ -234,8 +234,7 @@ fn run_workloads(
 
     if let config::ModuleReloadPolicy::Once = config.module_reload_policy {
         load_module(config).context("Load module once")?;
-    }
-    else {
+    } else {
         let _ = unload_module(config);
     }
 
