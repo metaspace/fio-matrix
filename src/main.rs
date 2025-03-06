@@ -432,8 +432,16 @@ fn run_single_workload(
         };
 
         let mut child = command.spawn()?;
+        let start = std::time::Instant::now();
         let mut last_ping = std::time::Instant::now();
         loop {
+            if std::time::Instant::now() - start
+                > std::time::Duration::from_secs((config.runtime + config.ramp + 20).try_into()?)
+            {
+                child.kill()?;
+                return Err(anyhow!("Workload timed out"));
+            }
+
             if std::time::Instant::now() - last_ping > std::time::Duration::from_secs(60) {
                 ping()?;
                 last_ping = std::time::Instant::now();
