@@ -17,15 +17,12 @@
     };
   };
 
-  outputs = inputs: with inputs;
+  outputs = inputs:
+    with inputs;
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
-        fio-matrix = pkgs.callPackage ./. { inherit nixpkgs system crane rust-overlay; };
-      in rec {
-        packages = {
-        default = fio-matrix;
-        };
-      }
-    );
+        fio-matrix =
+          pkgs.callPackage ./. { inherit nixpkgs system crane rust-overlay; };
+      in rec { packages = { default = fio-matrix; }; });
 }
