@@ -24,5 +24,13 @@
         pkgs = nixpkgs.legacyPackages.${system};
         fio-matrix =
           pkgs.callPackage ./. { inherit nixpkgs system crane rust-overlay; };
-      in rec { packages = { default = fio-matrix; }; });
+      in {
+        packages.default = fio-matrix;
+        devShells.default = let
+          overlays = [ (import inputs.rust-overlay) ];
+          pkgs = import inputs.nixpkgs { inherit overlays system; };
+        in pkgs.mkShell {
+          packages = [ pkgs.rust-bin.stable.latest.complete ];
+        };
+      });
 }

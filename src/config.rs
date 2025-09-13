@@ -149,6 +149,7 @@ pub(crate) struct Config {
     pub(crate) prep: bool,
     pub(crate) fio: PathBuf,
     pub(crate) configure_c_nullblk: bool,
+    pub(crate) configfs_rnull: bool,
 
     #[serde(default)]
     pub(crate) disable_boost_amd: bool,
@@ -282,6 +283,7 @@ impl Default for Config {
             cpufreq_governor_performance: Default::default(),
             tag: None,
             configure_c_nullblk: false,
+            configfs_rnull: false,
             output_path: None,
             remote: None,
             hipri: false,
