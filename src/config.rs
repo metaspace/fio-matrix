@@ -49,6 +49,9 @@ pub(crate) struct BlockConfig {
     #[arg(long)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) power: Option<u32>,
+    #[arg(long)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) submit_queues: Option<u32>,
 }
 
 impl Default for BlockConfig {
@@ -62,6 +65,7 @@ impl Default for BlockConfig {
             size: Some(4096),
             rotational: Some(0),
             power: Some(1),
+            submit_queues: Some(1),
         }
     }
 }

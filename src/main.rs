@@ -9,7 +9,6 @@ use anyhow::Result;
 use indicatif::ProgressBar;
 use logging::MemoryAppender;
 use std::fs::read_to_string;
-use std::io::ErrorKind::AddrNotAvailable;
 use std::io::IsTerminal;
 use std::io::Write;
 use std::path::Path;
@@ -636,6 +635,11 @@ fn setup_cnull(config: &config::Config) -> Result<()> {
         &config.block_cfg.memory_backed.unwrap().to_string(),
     )
     .context("memory_backed")?;
+    write_control_file(
+        "submit_queues",
+        &config.block_cfg.submit_queues.unwrap().to_string(),
+    )
+    .context("submit_queues")?;
     write_control_file("size", &config.block_cfg.size.unwrap().to_string()).context("size")?; // 4G
     write_control_file("power", "1").context("power")?; // Instantiate device
     Ok(())
@@ -703,6 +707,11 @@ fn setup_rnull_configfs(config: &config::Config) -> Result<()> {
         &config.block_cfg.memory_backed.unwrap().to_string(),
     )
     .context("memory_backed")?;
+    write_control_file(
+        "submit_queues",
+        &config.block_cfg.submit_queues.unwrap().to_string(),
+    )
+    .context("submit_queues")?;
     write_control_file("size", &config.block_cfg.size.unwrap().to_string()).context("size")?; // 4G
     write_control_file("power", "1").context("power")?; // Instantiate device
     Ok(())
