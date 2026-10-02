@@ -178,6 +178,10 @@ pub(crate) struct CliConfig {
     #[command(flatten)]
     #[serde(flatten)]
     pub(crate) block_cfg: BlockConfig,
+
+    #[arg(long)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) clocksource: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, ValueEnum, Copy, Clone, Debug)]
@@ -251,6 +255,9 @@ pub(crate) struct Config {
 
     #[serde(flatten)]
     pub(crate) block_cfg: BlockConfig,
+
+    #[serde(default)]
+    pub(crate) clocksource: String,
 }
 
 impl Config {
@@ -356,6 +363,7 @@ impl Default for Config {
             amd_pstate_fixed_3ghz: false,
             use_hugepages: false,
             block_cfg: BlockConfig::default(),
+            clocksource: String::from("clock_gettime"),
         }
     }
 }

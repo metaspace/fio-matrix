@@ -362,7 +362,7 @@ fn run_single_workload(
         String::from("--time_based=1"),
         format!("--runtime={}", config.runtime),
         String::from("--gtod_reduce=1"),
-        String::from("--clocksource=cpu"),
+        format!("--clocksource={}", config.clocksource),
         format!("--readwrite={}", workload),
         format!("--blocksize={}", block_size_bytes),
         String::from("--direct=1"),
