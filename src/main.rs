@@ -256,6 +256,11 @@ fn run_workloads(
         disable_turbo_intel().context("failed to disable intel turbo")?;
     }
 
+    if config.disable_l2_stream_prefetcher_amd {
+        disable_l2_stream_prefetcher_amd()
+            .context("failed to disable the amd L2 stream prefetcher")?;
+    }
+
     if config.use_hugepages {
         set_nr_hugepages(calculate_nr_hugepages(config)?)?;
     }
@@ -777,6 +782,62 @@ fn amd_pstate_fixed_3ghz() -> Result<()> {
 fn disable_boost_amd() -> Result<()> {
     log::info!("Disabling amd boost");
     std::fs::write("/sys/devices/system/cpu/cpufreq/boost", "0\n")?;
+    Ok(())
+}
+
+/// AMD family 19h prefetch control MSR. A set bit disables a prefetcher:
+/// bit 0 L1 stream, bit 1 L1 stride, bit 2 L1 region, bit 3 L2 stream,
+/// bit 5 L2 up/down.
+const MSR_AMD_PREFETCH_CONTROL: u64 = 0xc000_0108;
+const PREFETCH_L2_STREAM_DISABLE: u64 = 1 << 3;
+
+/// Disables the L2 stream hardware prefetcher on every CPU.
+///
+/// The prefetcher flips between an effective and an ineffective regime for
+/// the random 4 KiB read pattern of this benchmark and stays there for
+/// minutes, which shows up as two result levels about 8 % apart. With the
+/// prefetcher disabled every run lands at the lower level and results become
+/// comparable. The other bits of the register are preserved.
+fn disable_l2_stream_prefetcher_amd() -> Result<()> {
+    use std::os::unix::fs::FileExt;
+
+    log::info!("Disabling amd L2 stream prefetcher");
+
+    if !Path::new("/dev/cpu/0/msr").exists() {
+        Command::new("modprobe")
+            .arg("msr")
+            .spawn()?
+            .wait()?
+            .check_status()
+            .context("Failed to load the msr module")?;
+    }
+
+    let mut cpus = 0;
+    for entry in glob::glob("/dev/cpu/*/msr")? {
+        let path = entry?;
+        let file = File::options()
+            .read(true)
+            .write(true)
+            .open(&path)
+            .with_context(|| format!("Failed to open {path:?}"))?;
+        let mut buf = [0u8; 8];
+        file.read_exact_at(&mut buf, MSR_AMD_PREFETCH_CONTROL)
+            .with_context(|| format!("Failed to read prefetch control from {path:?}"))?;
+        let value = u64::from_le_bytes(buf) | PREFETCH_L2_STREAM_DISABLE;
+        file.write_all_at(&value.to_le_bytes(), MSR_AMD_PREFETCH_CONTROL)
+            .with_context(|| format!("Failed to write prefetch control to {path:?}"))?;
+        file.read_exact_at(&mut buf, MSR_AMD_PREFETCH_CONTROL)?;
+        if u64::from_le_bytes(buf) & PREFETCH_L2_STREAM_DISABLE == 0 {
+            return Err(anyhow!("Prefetch control did not stick on {path:?}"));
+        }
+        cpus += 1;
+    }
+
+    if cpus == 0 {
+        return Err(anyhow!("No /dev/cpu/*/msr devices found"));
+    }
+
+    log::info!("Disabled amd L2 stream prefetcher on {cpus} cpus");
     Ok(())
 }
 
