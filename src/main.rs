@@ -261,6 +261,10 @@ fn run_workloads(
             .context("failed to disable the amd L2 stream prefetcher")?;
     }
 
+    if config.disable_aslr {
+        disable_aslr().context("failed to disable address space randomization")?;
+    }
+
     if config.use_hugepages {
         set_nr_hugepages(calculate_nr_hugepages(config)?)?;
     }
@@ -838,6 +842,24 @@ fn disable_l2_stream_prefetcher_amd() -> Result<()> {
     }
 
     log::info!("Disabled amd L2 stream prefetcher on {cpus} cpus");
+    Ok(())
+}
+
+/// Disables user space address space randomization for the processes fio
+/// starts.
+///
+/// fio randomizes its layout once per invocation and the forked workers
+/// inherit it. Some layouts cost both workers a few percent for the whole
+/// run, which shows up as sporadic low samples. With randomization off the
+/// layout is the same for every run.
+fn disable_aslr() -> Result<()> {
+    log::info!("Disabling address space randomization");
+    std::fs::write("/proc/sys/kernel/randomize_va_space", "0\n")
+        .context("Failed to write randomize_va_space")?;
+    let value = std::fs::read_to_string("/proc/sys/kernel/randomize_va_space")?;
+    if value.trim() != "0" {
+        return Err(anyhow!("randomize_va_space is {} after writing 0", value.trim()));
+    }
     Ok(())
 }
 

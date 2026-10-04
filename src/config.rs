@@ -163,6 +163,10 @@ pub(crate) struct CliConfig {
     #[arg(long)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) disable_l2_stream_prefetcher_amd: Option<bool>,
+
+    #[arg(long)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) disable_aslr: Option<bool>,
     #[arg(long)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) tag: Option<String>,
@@ -220,6 +224,9 @@ pub(crate) struct Config {
 
     #[serde(default)]
     pub(crate) disable_l2_stream_prefetcher_amd: bool,
+
+    #[serde(default)]
+    pub(crate) disable_aslr: bool,
 
     #[serde(default)]
     pub(crate) cpufreq_governor_performance: bool,
@@ -369,6 +376,7 @@ impl Default for Config {
             disable_boost_intel: false,
             amd_pstate_fixed_3ghz: false,
             disable_l2_stream_prefetcher_amd: false,
+            disable_aslr: false,
             use_hugepages: false,
             block_cfg: BlockConfig::default(),
             clocksource: String::from("clock_gettime"),
